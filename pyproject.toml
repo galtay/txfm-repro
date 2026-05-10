@@ -1,0 +1,35 @@
+[project]
+name = "txfm-repro"
+version = "0.1.0"
+description = "Minimal reproduction of TxFM (Kenyon-Dean et al., ICLR 2026 Workshop FM4S)."
+readme = "README.md"
+requires-python = ">=3.13"
+authors = [
+    { name = "Gabriel Altay", email = "gabriel.altay@gmail.com" },
+]
+dependencies = [
+    "torch>=2.5",
+    "lightning[pytorch-extra]==2.6.1",
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+txfm-cli = "txfm_repro.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.11.6,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

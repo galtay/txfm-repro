@@ -1,0 +1,40 @@
+seed_everything: 0
+
+trainer:
+  max_epochs: 10
+  accelerator: auto
+  devices: 1
+  gradient_clip_val: 1.0
+  log_every_n_steps: 10
+  enable_checkpointing: false   # phase 0: no checkpoints to manage
+
+model:
+  cfg:
+    d_model: 128
+    n_layers: 2
+    n_heads: 4
+    dim_ff: 512
+    decoder_layers: 2
+    dropout: 0.1
+    activation: tanh        # "tanh" (paper Eq. 1) or "sigmoid" (opentxfm form); equivalent
+    loss_reduction: mean    # "none" | "mean" | "sum" — "none" falls back to mean for backward
+    # n_genes and library_size_L are auto-linked from `data:` below.
+
+data:
+  n_genes: 2000
+  n_train: 512
+  n_val: 64
+  K_unmasked: 256
+  K_unmasked_min: null      # null = fixed K; set to <K to vary sequence length per sample
+  n_sources: 1              # >1 simulates a heterogeneous corpus with different measured genes
+  measured_fraction: 1.0    # fraction of n_genes each source measures (≤1.0)
+  library_size_L: 100000.0
+  batch_size: 16
+  num_workers: 0
+  seed: 0
+
+optimizer:
+  class_path: torch.optim.AdamW
+  init_args:
+    lr: 1.0e-4
+    weight_decay: 1.0e-4
