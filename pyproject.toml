@@ -11,6 +11,9 @@ dependencies = [
     "torch>=2.5",
     "lightning[pytorch-extra]==2.6.1",
     "numpy>=1.26",
+    "datasets>=2.20",
+    "scikit-learn>=1.4",
+    "scipy>=1.13",
 ]
 
 [project.optional-dependencies]
@@ -33,3 +36,4 @@ target-version = "py313"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = ["network: hits HuggingFace; opt-in via TCGA_NETWORK_TESTS=1"]

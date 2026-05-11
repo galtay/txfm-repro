@@ -223,6 +223,25 @@ def mask_collate(
     }
 
 
+def metadata_collate(
+    batch: list[tuple[Tensor, Tensor, str]],
+    K: int,
+    library_size_L: float,
+    K_min: int | None = None,
+    rng_generator: torch.Generator | None = None,
+) -> dict[str, Tensor | list[str]]:
+    """Like `mask_collate`, but each item is `(counts, measured_mask, case_id)`
+    and the returned dict carries an extra `case_id: list[str]`. Used by the
+    predict path (extract_embeddings) so embeddings can be paired with the
+    source patient. Train/val never see this collate."""
+    triples = list(batch)
+    case_ids = [t[2] for t in triples]
+    pairs = [(t[0], t[1]) for t in triples]
+    out = mask_collate(pairs, K=K, library_size_L=library_size_L, K_min=K_min, rng_generator=rng_generator)
+    out["case_id"] = case_ids
+    return out
+
+
 class MockBulkDataModule(L.LightningDataModule):
     """Flat init signature so Lightning CLI can expose every knob as a `data.*`
     argument and YAML key without needing a wrapper config object.

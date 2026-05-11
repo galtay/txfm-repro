@@ -262,6 +262,13 @@ class LitTxFM(L.LightningModule):
 
     def __init__(self, cfg: LitTxFMConfig) -> None:
         super().__init__()
+        # Lightning round-trips hparams as dicts on `load_from_checkpoint`,
+        # so `cfg` may arrive here as a `dict` instead of the dataclass.
+        # The annotation stays `LitTxFMConfig` so jsonargparse-driven CLI
+        # linking (`data.init_args.* -> model.cfg.*`) still works; we just
+        # normalize at runtime.
+        if isinstance(cfg, dict):
+            cfg = LitTxFMConfig(**cfg)
         self.save_hyperparameters({"cfg": asdict(cfg)})
         self.cfg = cfg
         self.model = TxFM(
@@ -298,6 +305,24 @@ class LitTxFM(L.LightningModule):
             x_hat, batch["target"], reduction="mean", target_mask=target_mask,
         )
         self.log(f"{prefix}/loss", loss_mean, prog_bar=True, on_epoch=True, on_step=(prefix == "train"))
+
+        # Validation-only richer metrics: splits loss into visible/holdout,
+        # plus per-sample Pearson + R² on held-out positions. Skipped during
+        # training to keep the step cheap.
+        if prefix == "val":
+            from txfm_repro.metrics import compute_holdout_metrics
+            extra = compute_holdout_metrics(
+                x_hat=x_hat,
+                target=batch["target"],
+                unmasked_idx=batch["unmasked_idx"],
+                padding_mask=batch.get("padding_mask"),
+                target_mask=target_mask,
+            )
+            for k, v in extra.items():
+                if torch.isnan(v):
+                    continue
+                self.log(f"val/{k}", v, on_epoch=True, on_step=False)
+
         if self.cfg.loss_reduction == "mean":
             return loss_mean
         if self.cfg.loss_reduction == "sum":
@@ -313,3 +338,25 @@ class LitTxFM(L.LightningModule):
 
     def validation_step(self, batch: dict[str, Tensor], batch_idx: int) -> Tensor:
         return self._step(batch, "val")
+
+    def predict_step(
+        self,
+        batch: dict[str, Tensor],
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> dict[str, Tensor | list[str]]:
+        """Return the CLS embedding `s` (encoder output) — no decoder, no loss.
+
+        The batch dict may carry an optional `case_id` list (a `metadata_collate`
+        path attaches it for the predict dataloader); when present it's
+        passed through so the caller can pair embeddings with patient IDs.
+        """
+        s = self.model.encoder(
+            batch["unmasked_idx"],
+            batch["unmasked_vals"],
+            padding_mask=batch.get("padding_mask"),
+        )
+        out: dict[str, Tensor | list[str]] = {"embedding": s}
+        if "case_id" in batch:
+            out["case_id"] = batch["case_id"]
+        return out

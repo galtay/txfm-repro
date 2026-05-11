@@ -7,3 +7,5 @@ __pycache__/
 lightning_logs/
 .DS_Store
 dev_scratch/
+dev_sandbox/_out/
+out/

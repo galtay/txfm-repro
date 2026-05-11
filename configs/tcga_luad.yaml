@@ -1,0 +1,66 @@
+seed_everything: 0
+
+trainer:
+  max_epochs: 5
+  accelerator: auto
+  devices: 1
+  gradient_clip_val: 1.0
+  log_every_n_steps: 5
+  enable_checkpointing: true
+  logger:
+    # Both loggers: TB for live inspection in `tensorboard --logdir lightning_logs`,
+    # CSV for grep/awk/pandas-friendly metrics.csv next to each run.
+    - class_path: lightning.pytorch.loggers.TensorBoardLogger
+      init_args:
+        save_dir: lightning_logs
+        name: ""
+    - class_path: lightning.pytorch.loggers.CSVLogger
+      init_args:
+        save_dir: lightning_logs
+        name: ""
+  callbacks:
+    - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+      init_args:
+        save_last: true
+        save_top_k: 1
+        monitor: val/loss_holdout    # from Tier A; falls back gracefully if absent
+        mode: min
+        filename: "epoch{epoch:02d}-valloss{val/loss_holdout:.3f}"
+        auto_insert_metric_name: false
+
+model:
+  cfg:
+    d_model: 256
+    n_layers: 4
+    n_heads: 8
+    dim_ff: 1024
+    decoder_layers: 2
+    dropout: 0.1
+    activation: tanh
+    loss_reduction: mean
+    # n_genes and library_size_L are auto-linked from data.init_args below.
+
+data:
+  class_path: txfm_repro.tcga_data.TCGADataModule
+  init_args:
+    hf_repo: gabrielaltay/tcga-patients-open
+    hf_config: TCGA-LUAD
+    n_genes: 60660            # GENCODE v36 (asserted at setup() time)
+    gene_id_cache_path: configs/gene_ids_gencode_v36.json
+    K_unmasked: 1024
+    K_unmasked_min: 512       # variable sequence length per sample
+    library_size_L: 100000.0
+    batch_size: 8
+    num_workers: 0            # Phase 1: HF streaming + multi-worker isn't safe yet
+    seed: 0
+    val_hash_bucket: 0
+    n_hash_buckets: 10
+    aliquot_strategy: first
+    max_train_rows: null
+    max_val_rows: null
+
+optimizer:
+  class_path: torch.optim.AdamW
+  init_args:
+    lr: 1.0e-4
+    weight_decay: 1.0e-4
